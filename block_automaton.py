@@ -14,7 +14,6 @@ Features:
 Dependencies:
     pip install pygame numpy matplotlib
 """
-import sys
 import numpy as np
 import pygame
 import matplotlib.pyplot as plt
@@ -39,9 +38,50 @@ def ask_bool(prompt, default=False):
     if val in ('n','no','0','false'): return False
     return default
 
-# Automaton functions
-def initialize_grid(N, prob):
-    return np.random.choice([0,1], size=(N,N), p=[1-prob, prob])
+def initialize_grid(N, prob=None, pattern='random'):
+    grid = np.zeros((N, N), dtype=int)
+
+    if pattern == 'random':
+        if prob is None:
+            prob = 0.5
+        grid = np.random.choice([0,1], size=(N,N), p=[1-prob, prob])
+    
+    elif pattern == 'glider':
+        grid = np.ones((N, N), dtype=int)
+        glider = [(0, 1), (1, 0), (2, 0), (3, 1)] 
+        for dx, dy in glider:
+            if dx < N and dy < N:
+                grid[dx, dy] = 0 
+
+    elif pattern == 'border_black':  
+        grid[0, :] = 1     
+        grid[-1, :] = 1     
+        grid[:, 0] = 1      
+        grid[:, -1] = 1    
+
+    elif pattern == 'diagonals_white':
+        grid = np.ones((N, N), dtype=int)  
+        for i in range(N):
+            grid[i, i] = 0             
+            grid[i, N - 1 - i] = 0
+
+    elif pattern == 'diagonals_black':
+        for i in range(N):
+            grid[i, i] = 1               
+            grid[i, N - 1 - i] = 1       
+
+    elif pattern == 'block':
+        mid = N // 2
+        block = [(0,0),(0,1),(1,0),(1,1)]
+        for dx, dy in block:
+            grid[mid+dx, mid+dy] = 1
+
+    else:
+        print(f"Unknown pattern '{pattern}', defaulting to random.")
+        grid = np.random.choice([0,1], size=(N,N), p=[1-prob, prob])
+
+    return grid
+
 
 def get_block_positions(N, gen, wrap):
     if gen % 2 == 1:
@@ -120,8 +160,8 @@ def compute_perimeter(grid):
 
 # Single run collecting metrics
 def simulate_run(params):
-    N,prob,wrap,steps,cell_size,delay = params
-    grid = initialize_grid(N,prob)
+    N,prob,wrap,steps,cell_size,delay,pattern = params
+    grid = initialize_grid(N, prob, pattern)
     prev = None
     metrics = {'density':[], 'stability':[], 'activity':[], 'block_act':[], 'perimeter':[]}
     pygame.init()
@@ -190,7 +230,9 @@ def main():
         steps = ask_int("Number of generations [250]: ", 250)
         wrap = ask_bool("Wrap-around? (y/N) [N]: ", False)
         delay = ask_int("Delay between gens (ms) [0]: ", 0)
-        params = (N,prob,wrap,steps,None,delay)
+        pattern = input("Starting pattern [random]: ").strip().lower() or 'random'
+        params = (N, prob, wrap, steps, None, delay, pattern)
+
         # Run simulation
         metrics = simulate_run(params)
         all_runs.append(metrics)
